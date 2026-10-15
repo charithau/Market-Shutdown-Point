@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shutdown point: interactive demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: light;
+    --paper: #F2F5F6;
+    --grid: #D2DCE2;
+    --ink: #14283A;
+    --muted: #4F6070;
+    --rule: #B9C5CD;
+    --mc: #D6336C;
+    --atc: #1C6EA4;
+    --avc: #2B8A5F;
+    --z-shut: #F6D5D9;
+    --z-loss: #FAE8C2;
+    --z-profit: #D5EDE0;
+    --display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+    --body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.55 var(--body); }
+  header, main, footer { max-width: 1180px; margin: 0 auto; padding-left: 24px; padding-right: 24px; }
+  header { padding-top: 40px; }
+  h1 { font: 700 clamp(30px, 4.6vw, 54px)/1.05 var(--display); letter-spacing: -0.02em; margin: 0 0 12px; }
+  h2 { font: 700 22px/1.2 var(--display); margin: 0 0 12px; letter-spacing: -0.01em; }
+  .lede { max-width: 64ch; color: var(--muted); margin: 0 0 28px; font-size: 18px; }
+
+  .stage { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(290px, 1fr); gap: 36px; align-items: start; }
+  @media (max-width: 920px) { .stage { grid-template-columns: 1fr; } }
+
+  .chart { border: 1.5px solid var(--ink); background: #fff; }
+  .chart svg { display: block; width: 100%; height: auto; }
+  svg text { font: 500 12px var(--body); fill: var(--muted); }
+  svg .axis-title { fill: var(--ink); font-weight: 600; }
+  svg .zone-label { font-weight: 600; font-size: 13px; fill: var(--ink); }
+  svg .pt-label { fill: var(--ink); font-weight: 600; paint-order: stroke; stroke: rgba(255,255,255,.75); stroke-width: 3px; stroke-linejoin: round; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 22px; padding: 12px 16px; border-top: 1.5px solid var(--ink); font-size: 14px; }
+  .legend span { display: inline-flex; align-items: center; gap: 8px; }
+  .legend i { display: inline-block; width: 26px; height: 0; border-top: 3px solid; }
+  .legend i.thick { border-top-width: 6px; }
+
+  .panel > * + * { margin-top: 22px; }
+  .control label { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; margin-bottom: 6px; }
+  .control output { font: 700 20px var(--display); }
+  input[type=range] { width: 100%; accent-color: var(--ink); height: 28px; margin: 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .row .hint { font-size: 14px; color: var(--muted); margin-right: 4px; }
+  button { font: 600 14px var(--body); color: var(--ink); background: transparent; border: 1.5px solid var(--ink); padding: 7px 12px; cursor: pointer; }
+  button:hover { background: var(--ink); color: var(--paper); }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--atc); outline-offset: 2px; }
+
+  .status { padding: 14px 16px; border-left: 8px solid var(--ink); background: #fff; }
+  .status h3 { font: 700 24px/1.15 var(--display); margin: 0 0 4px; }
+  .status p { margin: 0; font-size: 15px; }
+  .status.shut { border-color: var(--mc); background: var(--z-shut); }
+  .status.loss { border-color: #C98A00; background: var(--z-loss); }
+  .status.profit { border-color: var(--avc); background: var(--z-profit); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th, td { padding: 7px 0; border-bottom: 1px solid var(--rule); text-align: left; font-weight: 400; }
+  td { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+  tr.key th, tr.key td { border-bottom: 1.5px solid var(--ink); }
+
+  .thresholds { font-size: 15px; margin: 0; display: grid; gap: 4px; }
+  .thresholds b { font-variant-numeric: tabular-nums; }
+
+  main section.notes { margin-top: 56px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 36px; }
+  @media (max-width: 920px) { main section.notes { grid-template-columns: 1fr; gap: 24px; } }
+  .notes p { margin: 0; max-width: 62ch; }
+  sup a { color: var(--atc); text-decoration: none; font-weight: 600; }
+
+  footer { padding-top: 40px; padding-bottom: 56px; }
+  footer ol { padding-left: 22px; margin: 0 0 16px; }
+  footer li { margin-bottom: 6px; }
+  footer a { color: var(--atc); }
+  .model { color: var(--muted); font-size: 14px; max-width: 80ch; }
+</style>
+</head>
+<body>
+<header>
+  <h1>When should a firm stop producing?</h1>
+  <p class="lede">A firm that takes the market price as given keeps producing in the short run as long as the price covers its average variable cost. Drag the price line on the chart, or use the sliders, to see where that stops being true.</p>
+</header>
+
+<main>
+  <div class="stage">
+    <div>
+      <div class="chart">
+        <svg id="chart" viewBox="0 0 760 520" role="img" aria-labelledby="chart-title chart-desc">
+          <title id="chart-title">Cost curves and market price for a price-taking firm</title>
+          <desc id="chart-desc">Marginal cost, average total cost and average variable cost curves, with a horizontal market price line. The shutdown point is where marginal cost crosses the lowest point of average variable cost.</desc>
+          <defs><clipPath id="clip"><rect x="64" y="20" width="672" height="444"/></clipPath></defs>
+          <g id="zones"></g>
+          <g id="grid"></g>
+          <g id="dyn"></g>
+          <rect id="hit" x="64" y="20" width="672" height="444" fill="transparent" style="touch-action:none;cursor:ns-resize"/>
+        </svg>
+        <div class="legend" aria-hidden="true">
+          <span><i style="border-color:var(--atc)"></i>Average total cost (ATC)</span>
+          <span><i style="border-color:var(--avc)"></i>Average variable cost (AVC)</span>
+          <span><i style="border-color:var(--mc);opacity:.45"></i>Marginal cost (MC)</span>
+          <span><i class="thick" style="border-color:var(--mc)"></i>Supply curve: MC above the shutdown point</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="control">
+        <label for="price">Market price <output id="priceOut" for="price"></output></label>
+        <input id="price" type="range" min="0" max="16" step="0.05" value="8">
+      </div>
+      <div class="control">
+        <label for="fc">Fixed cost <output id="fcOut" for="fc"></output></label>
+        <input id="fc" type="range" min="0" max="20" step="0.5" value="12">
+      </div>
+      <div class="row">
+        <span class="hint">Jump to</span>
+        <button type="button" data-jump="profit">Profit</button>
+        <button type="button" data-jump="loss">Loss, keep producing</button>
+        <button type="button" data-jump="shut">Shut down</button>
+      </div>
+      <div class="row">
+        <button type="button" id="play" aria-pressed="false">Play price drop</button>
+        <button type="button" id="reset">Reset</button>
+      </div>
+
+      <div id="status" class="status" aria-live="polite">
+        <h3 id="stTitle"></h3>
+        <p id="stText"></p>
+      </div>
+
+      <table>
+        <tbody>
+          <tr><th scope="row">Output where price = MC</th><td id="rQ"></td></tr>
+          <tr><th scope="row">Revenue</th><td id="rRev"></td></tr>
+          <tr><th scope="row">Variable cost</th><td id="rVC"></td></tr>
+          <tr><th scope="row">Fixed cost</th><td id="rFC"></td></tr>
+          <tr><th scope="row">Profit if it produces</th><td id="rProfit"></td></tr>
+          <tr class="key"><th scope="row">Profit if it shuts down</th><td id="rShut"></td></tr>
+        </tbody>
+      </table>
+
+      <p class="thresholds">
+        <span>Shutdown price (lowest AVC): <b id="thShut"></b></span>
+        <span>Break-even price (lowest ATC): <b id="thBE"></b></span>
+      </p>
+    </div>
+  </div>
+
+  <section class="notes">
+    <div>
+      <h2>Shutdown point</h2>
+      <p>This is where marginal cost crosses the lowest point of average variable cost.<sup><a href="#s1">1</a> <a href="#s2">2</a> <a href="#s3">3</a></sup> At any price below it, revenue cannot cover variable costs, so the firm loses less by closing.<sup><a href="#s2">2</a></sup></p>
+    </div>
+    <div>
+      <h2>Break-even point</h2>
+      <p>At the lowest point of average total cost, price equals ATC and the firm earns a normal profit.<sup><a href="#s3">3</a></sup> Between the two prices the firm makes a loss, but it still covers its variable costs and part of its fixed costs, so it keeps producing in the short run.<sup><a href="#s2">2</a> <a href="#s3">3</a></sup></p>
+    </div>
+    <div>
+      <h2>Supply curve</h2>
+      <p>For a firm in perfect competition, the marginal cost curve from the lowest point of average variable cost upward is the firm's supply curve.<sup><a href="#s2">2</a></sup> That is the thick line on the chart.</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p class="model">The numbers come from a worked example. Variable cost is Q³ − 6Q² + 14Q, so AVC = Q² − 6Q + 14 and MC = 3Q² − 12Q + 14. The lowest AVC is $5.00 at 3 units. Fixed cost comes from the slider, and the firm is assumed to be unable to recover any of it by closing. If some fixed costs can be avoided by closing, the cutoff price is higher.<sup><a href="#s1">1</a></sup></p>
+  <h2>References</h2>
+  <ol>
+    <li id="s1">Wikipedia, “Shutdown (economics)”. <a href="https://en.wikipedia.org/wiki/Shutdown_(economics)">en.wikipedia.org/wiki/Shutdown_(economics)</a></li>
+    <li id="s2">Lumen Learning, Microeconomics, “The Shutdown Point”. <a href="https://courses.lumenlearning.com/suny-microeconomics/chapter/the-shutdown-point/">courses.lumenlearning.com/suny-microeconomics/chapter/the-shutdown-point/</a></li>
+    <li id="s3">AnalystNotes, “Breakeven Analysis and Shutdown Decision”. <a href="https://www.analystnotes.com/cfa-study-notes-breakeven-analysis-and-shutdown-decision.html">analystnotes.com/cfa-study-notes-breakeven-analysis-and-shutdown-decision.html</a></li>
+  </ol>
+</footer>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const W = 760, L = 64, R = 736, T = 20, B = 464, QMAX = 6, PMAX = 18, H = 520;
+  const X = q => L + q / QMAX * (R - L);
+  const Y = p => B - p / PMAX * (B - T);
+  const AVC = q => q * q - 6 * q + 14;
+  const MC = q => 3 * q * q - 12 * q + 14;
+  const MIN_AVC = 5, Q_SD = 3;
+  const DEFAULTS = { P: 8, FC: 12 };
+  let P = DEFAULTS.P, FC = DEFAULTS.FC;
+
+  const fmt = n => n.toFixed(2);
+  const money = n => (n < -0.005 ? "−$" : "$") + Math.abs(n).toFixed(2);
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+  function minATC(fc) {
+    let bq = 0.5, bv = Infinity;
+    for (let q = 0.5; q <= QMAX; q += 0.001) {
+      const v = AVC(q) + fc / q;
+      if (v < bv) { bv = v; bq = q; }
+    }
+    return { q: bq, v: bv };
+  }
+
+  function path(fn, q0, q1) {
+    let d = "";
+    for (let q = q0; q <= q1 + 1e-9; q += 0.02) {
+      d += (d ? "L" : "M") + X(q).toFixed(1) + " " + Y(fn(q)).toFixed(1);
+    }
+    return d;
+  }
+
+  // Static grid and axes
+  (function drawGrid() {
+    let s = "";
+    for (let q = 0; q <= QMAX; q++) {
+      s += `<line x1="${X(q)}" y1="${T}" x2="${X(q)}" y2="${B}" stroke="var(--grid)"/>`;
+      s += `<text x="${X(q)}" y="${B + 20}" text-anchor="middle">${q}</text>`;
+    }
+    for (let p = 0; p <= PMAX; p += 2) {
+      s += `<line x1="${L}" y1="${Y(p)}" x2="${R}" y2="${Y(p)}" stroke="var(--grid)"/>`;
+      s += `<text x="${L - 10}" y="${Y(p) + 4}" text-anchor="end">${p}</text>`;
+    }
+    s += `<line x1="${L}" y1="${B}" x2="${R}" y2="${B}" stroke="var(--ink)" stroke-width="1.5"/>`;
+    s += `<line x1="${L}" y1="${T}" x2="${L}" y2="${B}" stroke="var(--ink)" stroke-width="1.5"/>`;
+    s += `<text class="axis-title" x="${(L + R) / 2}" y="${H - 14}" text-anchor="middle">Output (units)</text>`;
+    s += `<text class="axis-title" transform="translate(18 ${(T + B) / 2}) rotate(-90)" text-anchor="middle">Price and cost per unit ($)</text>`;
+    $("grid").innerHTML = s;
+  })();
+
+  function compute() {
+    const be = minATC(FC);
+    const ATC = q => AVC(q) + FC / q;
+    const q = P >= 2 ? 2 + Math.sqrt(12 * P - 24) / 6 : 0;
+    const rev = P * q;
+    const vc = q * AVC(q);
+    const profit = rev - vc - FC;
+    const state = P < MIN_AVC - 1e-9 ? "shut" : (P < be.v - 1e-9 ? "loss" : "profit");
+    return { be, ATC, q, rev, vc, profit, state };
+  }
+
+  function render() {
+    const { be, ATC, q, rev, vc, profit, state } = compute();
+
+    // Zones behind the grid
+    const wZ = R - L;
+    let z = `<rect x="${L}" y="${Y(MIN_AVC)}" width="${wZ}" height="${B - Y(MIN_AVC)}" fill="var(--z-shut)"/>`;
+    z += `<rect x="${L}" y="${Y(be.v)}" width="${wZ}" height="${Y(MIN_AVC) - Y(be.v)}" fill="var(--z-loss)"/>`;
+    z += `<rect x="${L}" y="${T}" width="${wZ}" height="${Y(be.v) - T}" fill="var(--z-profit)"/>`;
+    z += `<text class="zone-label" x="${R - 10}" y="${Y(MIN_AVC / 2) + 4}" text-anchor="end">Price too low: shut down</text>`;
+    if (Y(MIN_AVC) - Y(be.v) > 24) {
+      z += `<text class="zone-label" x="${R - 10}" y="${(Y(MIN_AVC) + Y(be.v)) / 2 + 4}" text-anchor="end">Loss, but keep producing</text>`;
+    }
+    z += `<text class="zone-label" x="${R - 10}" y="${Y(be.v) - 9}" text-anchor="end">Profit</text>`;
+    $("zones").innerHTML = z;
+
+    // Curves, rectangle, markers
+    let d = `<g clip-path="url(#clip)">`;
+    if (q > 0) {
+      const y1 = Y(P), y2 = Y(ATC(q));
+      const fill = profit >= 0 ? "var(--avc)" : "var(--mc)";
+      d += `<rect x="${L}" y="${Math.min(y1, y2)}" width="${X(q) - L}" height="${Math.abs(y1 - y2)}" fill="${fill}" fill-opacity=".32" stroke="${fill}" stroke-width="1.5" ${state === "shut" ? 'stroke-dasharray="5 4"' : ""}/>`;
+    }
+    d += `<path d="${path(MC, 0.25, QMAX)}" fill="none" stroke="var(--mc)" stroke-width="2.5" stroke-opacity=".45"/>`;
+    d += `<path d="${path(MC, Q_SD, QMAX)}" fill="none" stroke="var(--mc)" stroke-width="5"/>`;
+    d += `<path d="${path(q => AVC(q) + FC / q, 0.3, QMAX)}" fill="none" stroke="var(--atc)" stroke-width="2.5"/>`;
+    d += `<path d="${path(AVC, 0.05, QMAX)}" fill="none" stroke="var(--avc)" stroke-width="2.5"/>`;
+    d += `</g>`;
+
+    // Price line
+    d += `<line x1="${L}" y1="${Y(P)}" x2="${R}" y2="${Y(P)}" stroke="var(--ink)" stroke-width="2.5"/>`;
+    const ly = Y(P) - 9 < T + 14 ? Y(P) + 20 : Y(P) - 9;
+    d += `<text class="pt-label" x="${L + 10}" y="${ly}">Price ${money(P)}</text>`;
+
+    // Shutdown and break-even points
+    const sx = X(Q_SD), sy = Y(MIN_AVC);
+    d += `<path d="M${sx} ${sy - 8}L${sx + 8} ${sy}L${sx} ${sy + 8}L${sx - 8} ${sy}Z" fill="var(--mc)" stroke="#fff" stroke-width="1.5"><title>Shutdown point</title></path>`;
+    d += `<text class="pt-label" x="${sx - 14}" y="${sy + 22}" text-anchor="end">Shutdown point ${money(MIN_AVC)}</text>`;
+    const bx = X(be.q), by = Y(be.v);
+    d += `<circle cx="${bx}" cy="${by}" r="6" fill="var(--atc)" stroke="#fff" stroke-width="1.5"><title>Break-even point</title></circle>`;
+    d += `<text class="pt-label" x="${bx + 14}" y="${by - 10}">Break-even ${money(be.v)}</text>`;
+
+    // Operating point
+    if (q > 0) {
+      d += `<line x1="${X(q)}" y1="${Y(P)}" x2="${X(q)}" y2="${B}" stroke="var(--ink)" stroke-dasharray="4 4"/>`;
+      d += `<text class="pt-label" x="${X(q)}" y="${B - 8}" text-anchor="middle">Q = ${fmt(q)}</text>`;
+      d += state === "shut"
+        ? `<circle cx="${X(q)}" cy="${Y(P)}" r="7" fill="#fff" stroke="var(--ink)" stroke-width="2.5"/>`
+        : `<circle cx="${X(q)}" cy="${Y(P)}" r="7" fill="var(--ink)" stroke="#fff" stroke-width="2"/>`;
+    }
+    $("dyn").innerHTML = d;
+
+    // Readout
+    $("priceOut").textContent = money(P);
+    $("fcOut").textContent = money(FC);
+    $("rQ").textContent = fmt(q);
+    $("rRev").textContent = money(rev);
+    $("rVC").textContent = money(vc);
+    $("rFC").textContent = money(FC);
+    $("rProfit").textContent = money(profit);
+    $("rShut").textContent = money(-FC);
+    $("thShut").textContent = money(MIN_AVC);
+    $("thBE").textContent = money(be.v);
+
+    const box = $("status");
+    box.className = "status " + state;
+    if (state === "shut") {
+      $("stTitle").textContent = "Shut down";
+      $("stText").textContent = P < 2
+        ? `The price is below the lowest marginal cost, so the firm would produce next to nothing. It loses its fixed cost of ${money(FC)}.`
+        : `Revenue is ${money(vc - rev)} short of variable cost. Producing would make the loss ${money(vc - rev)} bigger than the ${money(FC)} of fixed cost it pays anyway.`;
+    } else if (state === "loss") {
+      $("stTitle").textContent = "Keep producing, at a loss";
+      $("stText").textContent = `Revenue covers variable cost and pays ${money(rev - vc)} toward fixed cost. The loss is ${money(-profit)}, against ${money(FC)} if it shut down.`;
+    } else {
+      $("stTitle").textContent = "Keep producing, at a profit";
+      $("stText").textContent = profit < 0.005
+        ? "Price equals average total cost at this output, so the firm just breaks even."
+        : `Price is above average total cost at the best output, so the firm earns ${money(profit)}.`;
+    }
+  }
+
+  function setP(v) {
+    P = clamp(Math.round(v * 20) / 20, 0, 16);
+    $("price").value = P;
+    render();
+  }
+
+  $("price").addEventListener("input", e => { stopPlay(); setP(parseFloat(e.target.value)); });
+  $("fc").addEventListener("input", e => { FC = parseFloat(e.target.value); render(); });
+
+  // Drag the price line on the chart
+  const hit = $("hit"), svg = $("chart");
+  let dragging = false;
+  function fromPointer(e) {
+    const r = svg.getBoundingClientRect();
+    const sy = (e.clientY - r.top) * (H / r.height);
+    setP((B - sy) / (B - T) * PMAX);
+  }
+  hit.addEventListener("pointerdown", e => { dragging = true; hit.setPointerCapture(e.pointerId); stopPlay(); fromPointer(e); });
+  hit.addEventListener("pointermove", e => { if (dragging) fromPointer(e); });
+  hit.addEventListener("pointerup", () => { dragging = false; });
+  hit.addEventListener("pointercancel", () => { dragging = false; });
+
+  // Jump buttons
+  document.querySelectorAll("[data-jump]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      stopPlay();
+      const be = minATC(FC);
+      const k = btn.dataset.jump;
+      if (k === "profit") setP(Math.min(be.v + 1.5, 16));
+      if (k === "loss") setP((MIN_AVC + be.v) / 2);
+      if (k === "shut") setP(MIN_AVC - 1.5);
+    });
+  });
+
+  // Animated price drop (starts only when the person presses Play)
+  const playBtn = $("play");
+  let raf = 0, t0 = 0;
+  function stopPlay() {
+    if (raf) cancelAnimationFrame(raf);
+    raf = 0;
+    playBtn.textContent = "Play price drop";
+    playBtn.setAttribute("aria-pressed", "false");
+  }
+  function tick(t) {
+    const k = Math.min((t - t0) / 10000, 1);
+    setP(14 - 12 * k);
+    if (k < 1) raf = requestAnimationFrame(tick); else stopPlay();
+  }
+  playBtn.addEventListener("click", () => {
+    if (raf) { stopPlay(); return; }
+    t0 = performance.now();
+    playBtn.textContent = "Pause";
+    playBtn.setAttribute("aria-pressed", "true");
+    raf = requestAnimationFrame(tick);
+  });
+
+  $("reset").addEventListener("click", () => {
+    stopPlay();
+    FC = DEFAULTS.FC;
+    $("fc").value = FC;
+    setP(DEFAULTS.P);
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
